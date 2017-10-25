@@ -1,28 +1,25 @@
-﻿using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Microsoft.IdentityModel.Tokens;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.Identity.Client;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 using WebApp_OpenIDConnect_DotNet.Models;
-using System.Security.Claims;
 
 namespace WebApp_OpenIDConnect_DotNet
 {
     public class OpenIdConnectOptionsSetup : IConfigureOptions<OpenIdConnectOptions>
     {
+        public AzureAdB2COptions AzureAdB2COptions { get; set; }
 
         public OpenIdConnectOptionsSetup(IOptions<AzureAdB2COptions> b2cOptions)
         {
             AzureAdB2COptions = b2cOptions.Value;
         }
-
-        public AzureAdB2COptions AzureAdB2COptions { get; set; }
 
         public void Configure(OpenIdConnectOptions options)
         {
@@ -42,7 +39,7 @@ namespace WebApp_OpenIDConnect_DotNet
         public Task OnRedirectToIdentityProvider(RedirectContext context)
         {
             var defaultPolicy = AzureAdB2COptions.DefaultPolicy;
-            if (context.Properties.Items.TryGetValue(AzureAdB2COptions.PolicyAuthenticationProperty, out var policy) && 
+            if (context.Properties.Items.TryGetValue(AzureAdB2COptions.PolicyAuthenticationProperty, out var policy) &&
                 !policy.Equals(defaultPolicy))
             {
                 context.ProtocolMessage.Scope = OpenIdConnectScope.OpenIdProfile;
@@ -50,14 +47,15 @@ namespace WebApp_OpenIDConnect_DotNet
                 context.ProtocolMessage.IssuerAddress = context.ProtocolMessage.IssuerAddress.ToLower().Replace(defaultPolicy.ToLower(), policy.ToLower());
                 context.Properties.Items.Remove(AzureAdB2COptions.PolicyAuthenticationProperty);
             }
-            else if (!string.IsNullOrEmpty(AzureAdB2COptions.ApiUrl)) {
+            else if (!string.IsNullOrEmpty(AzureAdB2COptions.ApiUrl))
+            {
                 context.ProtocolMessage.Scope += $" offline_access {AzureAdB2COptions.ApiScopes}";
                 context.ProtocolMessage.ResponseType = OpenIdConnectResponseType.CodeIdToken;
             }
             return Task.FromResult(0);
         }
 
-        public Task OnRemoteFailure(FailureContext context)
+        public Task OnRemoteFailure(RemoteFailureContext context)
         {
             context.HandleResponse();
             // Handle the error code that Azure AD B2C throws when trying to reset a password from the login page 
@@ -81,17 +79,16 @@ namespace WebApp_OpenIDConnect_DotNet
         public async Task OnAuthorizationCodeReceived(AuthorizationCodeReceivedContext context)
         {
             // Use MSAL to swap the code for an access token
-             // Extract the code from the response notification
+            // Extract the code from the response notification
             var code = context.ProtocolMessage.Code;
 
-            string signedInUserID = context.Ticket.Principal.FindFirst(ClaimTypes.NameIdentifier).Value;
+            string signedInUserID = context.Principal.FindFirst(ClaimTypes.NameIdentifier).Value;
             TokenCache userTokenCache = new MSALSessionCache(signedInUserID, context.HttpContext).GetMsalCacheInstance();
             ConfidentialClientApplication cca = new ConfidentialClientApplication(AzureAdB2COptions.ClientId, AzureAdB2COptions.Authority, AzureAdB2COptions.RedirectUri, new ClientCredential(AzureAdB2COptions.ClientSecret), userTokenCache, null);
             try
             {
                 AuthenticationResult result = await cca.AcquireTokenByAuthorizationCodeAsync(code, AzureAdB2COptions.ApiScopes.Split(' '));
 
-                   
                 context.HandleCodeRedemption(result.AccessToken, result.IdToken);
             }
             catch (Exception ex)
