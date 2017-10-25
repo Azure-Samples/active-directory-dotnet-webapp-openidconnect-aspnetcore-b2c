@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
 namespace WebApp_OpenIDConnect_DotNet
 {
@@ -35,19 +36,35 @@ namespace WebApp_OpenIDConnect_DotNet
 
             // Add framework services.
             services.AddMvc();
-            
+
             // Adds a default in-memory implementation of IDistributedCache.
             services.AddDistributedMemoryCache();
             services.AddSession(options =>
             {
                 options.IdleTimeout = TimeSpan.FromHours(1);
-                options.CookieHttpOnly = true;
+                options.Cookie.HttpOnly = true;
             });
 
-            services.AddAuthentication(
-                sharedOptions => sharedOptions.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme);
+            // TODO: Use following to configure OpenIdConnectOptions
+            //services.AddSingleton<IConfigureOptions<OpenIdConnectOptions>, OpenIdConnectOptionsSetup>();
 
-            services.AddSingleton<IConfigureOptions<OpenIdConnectOptions>, OpenIdConnectOptionsSetup>();
+            services
+                .AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                    options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                    options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+                })
+                .AddCookie()
+                .AddOpenIdConnect(options =>
+                {
+                    // TODO: Hack, use DI
+                    ServiceProvider serviceProvider = services.BuildServiceProvider();
+                    var b2cOptions = serviceProvider.GetService<IOptions<AzureAdB2COptions>>();
+
+                    var service = new OpenIdConnectOptionsSetup(b2cOptions);
+                    service.Configure(options);
+                });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -67,12 +84,10 @@ namespace WebApp_OpenIDConnect_DotNet
             }
 
             app.UseStaticFiles();
-            
-            app.UseSession();
-            
-            app.UseCookieAuthentication();
 
-            app.UseOpenIdConnectAuthentication();
+            app.UseSession();
+
+            app.UseAuthentication();
 
             app.UseMvc(routes =>
             {

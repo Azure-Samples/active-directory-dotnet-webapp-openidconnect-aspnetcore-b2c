@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.AspNetCore.Http.Authentication;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using Microsoft.Extensions.Options;
-using Microsoft.AspNetCore.Http.Features.Authentication;
 
 namespace WebApp_OpenIDConnect_DotNet.Controllers
 {
@@ -24,17 +19,15 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
         [HttpGet]
         public async Task SignIn()
         {
-            await HttpContext.Authentication.ChallengeAsync(
-                OpenIdConnectDefaults.AuthenticationScheme, new AuthenticationProperties { RedirectUri = "/" });
+            await HttpContext.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme, new AuthenticationProperties { RedirectUri = "/" });
         }
 
         [HttpGet]
         public async Task ResetPassword()
         {
-            var properties = new AuthenticationProperties() { RedirectUri = "/"  };
+            var properties = new AuthenticationProperties() { RedirectUri = "/" };
             properties.Items[AzureAdB2COptions.PolicyAuthenticationProperty] = AzureAdB2COptions.ResetPasswordPolicyId;
-            await HttpContext.Authentication.ChallengeAsync(
-                OpenIdConnectDefaults.AuthenticationScheme, properties, ChallengeBehavior.Unauthorized);
+            await HttpContext.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme, properties);
         }
 
         [HttpGet]
@@ -42,8 +35,7 @@ namespace WebApp_OpenIDConnect_DotNet.Controllers
         {
             var properties = new AuthenticationProperties() { RedirectUri = "/" };
             properties.Items[AzureAdB2COptions.PolicyAuthenticationProperty] = AzureAdB2COptions.EditProfilePolicyId;
-            await HttpContext.Authentication.ChallengeAsync(
-                OpenIdConnectDefaults.AuthenticationScheme, properties, ChallengeBehavior.Unauthorized);
+            await HttpContext.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme, properties);
         }
 
         [HttpGet]

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 
 namespace WebApp_OpenIDConnect_DotNet
@@ -11,14 +7,13 @@ namespace WebApp_OpenIDConnect_DotNet
     {
         public static void Main(string[] args)
         {
-            var host = new WebHostBuilder()
-                .UseKestrel()
-                .UseContentRoot(Directory.GetCurrentDirectory())
-                .UseIISIntegration()
-                .UseStartup<Startup>()
-                .Build();
+            IWebHost webHost = WebHost.CreateDefaultBuilder(args)
+               .CaptureStartupErrors(true)
+               .UseSetting("detailedErrors", "true")
+               .UseStartup<Startup>()
+               .Build();
 
-            host.Run();
+            webHost.Run();
         }
     }
 }
